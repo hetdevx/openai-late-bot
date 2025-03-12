@@ -1,8 +1,8 @@
 const { App } = require("@slack/bolt");
 const Message = require("../models/message.model");
 const env = require("../config/env");
-const chatWithGemini = require("./gemini.service");
-
+// const chatWithGemini = require("./gemini.service");
+const openAIService = require("./openai.service");
 // console.log(env.SLACK_APP_TOKEN)
 
 // Initialize Slack App
@@ -23,7 +23,11 @@ async function getUserName(userId) {
       user: userId,
     });
 
-    return response.user ? response.user.real_name || response.user.name : "Unknown User";
+    console.log(env.SLACK_BOT_TOKEN, "response");
+
+    return response.user
+      ? response.user.real_name || response.user.name
+      : "Unknown User";
   } catch (error) {
     console.error("❌ Error fetching user name:", error);
     return "Unknown User";
@@ -52,17 +56,17 @@ async function getChannelName(channelId) {
   }
 }
 
-
 async function parseQuery(queryText) {
   try {
-    const response = await chatWithGemini(`Convert this query into a MongoDB JSON query: ${queryText}`);
+    const response = await openAIService(
+      `Convert this query into a MongoDB JSON query: ${queryText}`,
+    );
     return JSON.parse(response);
   } catch (error) {
     console.error("❌ Error parsing query:", error);
     return null;
   }
 }
-
 
 async function executeQuery(query) {
   try {
@@ -74,12 +78,13 @@ async function executeQuery(query) {
 }
 
 function formatResults(results) {
-  return results.map(r => `📌 **${r.username}** was on **${r.category}** leave from ${r.start_time} to ${r.end_time}`).join("\n");
+  return results
+    .map(
+      (r) =>
+        `📌 **${r.username}** was on **${r.category}** leave from ${r.start_time} to ${r.end_time}`,
+    )
+    .join("\n");
 }
-
-
-
-
 
 // Listen for messages and save them to MongoDB
 app.event("message", async ({ event, say }) => {
@@ -93,7 +98,9 @@ app.event("message", async ({ event, say }) => {
       if (userInput.startsWith("/attquery")) {
         const queryText = userInput.replace("/attquery", "").trim();
         if (!queryText) {
-          await say("Please provide a query. Example: `/attquery show all leaves for John`");
+          await say(
+            "Please provide a query. Example: `/attquery show all leaves for John`",
+          );
           return;
         }
 
@@ -110,30 +117,35 @@ app.event("message", async ({ event, say }) => {
       }
 
       // Process normal messages with Gemini
-      const res = await chatWithGemini(userInput);
+      const res = await openAIService(userInput);
       const username = await getUserName(event.user);
       const channelname = await getChannelName(event.channel);
 
-      res.forEach(obj => {
-        obj.user = event.user;
-        obj.channel = event.channel;
-        obj.username = username;
-        obj.channelname = channelname;
-      });
-
-      // Store valid responses in MongoDB
-      for (const obj of res) {
-        if (obj["is_valid"]) {
-          await Message.insertOne(obj);
+      if (Array.isArray(res)) {
+        for (const obj of res) {
+          if (obj && obj["is_valid"]) {
+            await Message.create({
+              user: event.user,
+              username,
+              channel: event.channel,
+              channelname,
+              time: new Date(),
+              original: obj.original,
+              category: obj.category,
+              duration: obj.duration,
+              start_time: obj.start_time,
+              end_time: obj.end_time,
+            });
+            console.log("✅ Leave record saved:", obj);
+          }
         }
       }
 
-      console.log(res);
+      console.log(res, "response");
     }
   } catch (error) {
     console.error("❌ Error handling message:", error);
   }
 });
-
 
 module.exports = app;

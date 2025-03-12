@@ -3,12 +3,10 @@ const Message = require("../models/message.model");
 const API_KEY = "AIzaSyB1LntCRcqpSBc6oXzAlKRgRNHWx6ywAqQ";
 const genAI = new GoogleGenerativeAI(API_KEY);
 
-const now = new Date()
-
+const now = new Date();
 
 async function chatWithGemini(prompt) {
-
-    const finalMsg = `You are a leave management assistant. Analyze the message and extract the required details based on the following rules:  
+  const finalMsg = `You are a leave management assistant. Analyze the message and extract the required details based on the following rules:
 Timestamp of the Message: ${now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" })} (IST)
 
     - First categorise the message into one of the following categories:
@@ -142,26 +140,28 @@ Timestamp of the Message: ${now.toLocaleString("en-US", { timeZone: "Asia/Kolkat
 
 						Leaving early at 2PM or earlier should be considered as 'HALF DAY LEAVE'
 
-						Note: "Always break more than 1 events into multiple objects, like 'on leave for next 3 
+						Note: "Always break more than 1 events into multiple objects, like 'on leave for next 3
 						days would be breaked into 3 objects' and so on"
-            
+
             ### **Message**
             ${prompt}
-            `
+            `;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    const result = await model.generateContent(finalMsg);
-    const response = result.response;
-    // console.log("Gemini Response:", response.text());
-    const cleanJson = response.text().replace(/```json|```/g, "").trim();
-    // console.log(cleanJson);
-    // console.log(JSON.parse(cleanJson));
-    return JSON.parse(cleanJson);
+  const result = await model.generateContent(finalMsg);
+  const response = result.response;
+  // console.log("Gemini Response:", response.text());
+  const cleanJson = response
+    .text()
+    .replace(/```json|```/g, "")
+    .trim();
+  // console.log(cleanJson);
+  // console.log(JSON.parse(cleanJson));
+  return JSON.parse(cleanJson);
 }
 
 async function queryGemini(prompt) {
-
   const finalMsg = `
 You are an AI assistant responsible for query management in a Slack-based leave management bot. Your task is to accurately convert natural language queries into **MongoDB Mongoose queries** following these strict guidelines:
 
@@ -199,7 +199,7 @@ const messageSchema = new mongoose.Schema({
 The previously given query by using which, Data is stored in mondoDB(starts with -*--*- and ends with -*--*-)
 
 -*--*-
-You are a leave management assistant. Analyze the message and extract the required details based on the following rules:  
+You are a leave management assistant. Analyze the message and extract the required details based on the following rules:
 Timestamp of the Message: current time (IST)
 
     - First categorise the message into one of the following categories:
@@ -333,16 +333,16 @@ Timestamp of the Message: current time (IST)
 
 						Leaving early at 2PM or earlier should be considered as 'HALF DAY LEAVE'
 
-						Note: "Always break more than 1 events into multiple objects, like 'on leave for next 3 
+						Note: "Always break more than 1 events into multiple objects, like 'on leave for next 3
 						days would be breaked into 3 objects' and so on"
-            
+
             ### **Message**
             The original message
            -*--*-
 
 ## **Strict Query Generation Rules:**
 ### **1️⃣ Use Proper Mongoose Methods**
-- If the query requires calculations (e.g., **total hours worked from home**), use **\`aggregate()\`** with \`$group\` and \`$sum\`.  
+- If the query requires calculations (e.g., **total hours worked from home**), use **\`aggregate()\`** with \`$group\` and \`$sum\`.
 - For simple lookups (e.g., **"Show all leaves for Prince Saliya"**), use **\`find()\`**.
 
 ### **2️⃣ Correct Duration Calculation**
@@ -367,7 +367,7 @@ Timestamp of the Message: current time (IST)
 ---
 
 ## **🚀 Robust Date Handling**
-**DO NOT** use incorrect functions like **\`ISODate()\`** (which is not available in JavaScript).  
+**DO NOT** use incorrect functions like **\`ISODate()\`** (which is not available in JavaScript).
 Use **native JavaScript Date objects** instead:
 
 ### **🟢 Last Month Calculation**
@@ -427,7 +427,7 @@ If a user asks for "Leaves from Feb 10, 2025 to Feb 15, 2025":
 
 ## **🔍 Example Query & Expected Mongoose Output**
 ### **User Query:**
-  🔹 \`"How many hours did Prince Saliya work from home last month?"\`  
+  🔹 \`"How many hours did Prince Saliya work from home last month?"\`
 ### **Generated Query:**
 \`\`\`javascript
 Message.aggregate([
@@ -461,13 +461,11 @@ Message.aggregate([
 ---
 
 ## **🔹 Now Convert This Query:**
-🔍 **User Query:**  
+🔍 **User Query:**
   **"${prompt}"**
 
 🎯 **Return ONLY the Mongoose Query**, nothing else.
 `;
-
-
 
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
@@ -475,39 +473,37 @@ Message.aggregate([
   const response = result.response;
   // console.log("Gemini Response:", response.text());
   // const cleanJson = response.text().replace(/```json|```/g, "").trim();
-  // console.log(cleanJson); 
+  // console.log(cleanJson);
   // console.log(JSON.parse(cleanJson));
-  console.log('query',response.text());
+  console.log("query", response.text());
 
-  const mResponse=await Message.aggregate([
+  const mResponse = await Message.aggregate([
     {
       $match: {
-        category: { $in: ["FDL", "HDL", "OOO"] }  // Include only relevant leave categories
-      }
+        category: { $in: ["FDL", "HDL", "OOO"] }, // Include only relevant leave categories
+      },
     },
     {
       $group: {
         _id: "$username",
-        totalLeaveDays: { $sum: 1 }  // Count number of leave records per user
-      }
+        totalLeaveDays: { $sum: 1 }, // Count number of leave records per user
+      },
     },
     {
-      $sort: { totalLeaveDays: -1 }  // Sort in descending order
+      $sort: { totalLeaveDays: -1 }, // Sort in descending order
     },
     {
-      $limit: 1  // Get only the top result (remove this if ranking all users)
-    }
-  ])
-  
-  
+      $limit: 1, // Get only the top result (remove this if ranking all users)
+    },
+  ]);
 
-  console.log('mResponse',mResponse);
+  console.log("mResponse", mResponse);
   // return JSON.parse(cleanJson);
 }
 
-queryGemini('Who took the most leaves this month');
+queryGemini("Who took the most leaves this month");
 
 // Example Usage
 // chatWithGemini("on leave tomorrow");
- 
+
 module.exports = chatWithGemini;

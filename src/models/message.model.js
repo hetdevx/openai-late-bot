@@ -1,18 +1,18 @@
 const mongoose = require("mongoose");
 
 const messageSchema = new mongoose.Schema({
-  start_time: { type: Date, required: true },
-  end_time: { type: Date, required: true },
-  duration: { type: String, required: true },
+  start_time: { type: Date, required: false },
+  end_time: { type: Date, required: false },
+  duration: { type: String, required: false },
   reason: { type: String, required: false },
-  category: { type: String, required: true },
-  is_valid: { type: Boolean, required: true },
-  original: { type: String, required: true },
-  time: { type: Date, required: true },
-  user: { type: String, required: true },
-  username: { type: String, required: true },
-  channel: { type: String, required: true },
-  channelname: { type: String, required: true },
+  category: { type: String, required: false },
+  is_valid: { type: Boolean, required: false },
+  original: { type: String, required: false },
+  time: { type: Date, required: false },
+  user: { type: String, required: false },
+  username: { type: String, required: false },
+  channel: { type: String, required: false },
+  channelname: { type: String, required: false },
 });
 
 module.exports = mongoose.model("Message", messageSchema);
