@@ -1,54 +1,64 @@
-const { OpenAI } = require("openai");
+const { ChatOpenAI } = require("@langchain/openai");
+const { HumanMessage, SystemMessage } = require("@langchain/core/messages");
 const env = require("../config/env");
 
-const openai = new OpenAI({ aresponse_formatpiKey: env.OPENAI_API_KEY });
+const openai = new ChatOpenAI({
+  openAIApiKey: env.OPENAI_API_KEY,
+  modelName: "gpt-4o-mini",
+  temperature: 0.5,
+});
+
+function getCurrentDateTime() {
+  const now = new Date();
+  return now.toLocaleString(); // Example: 2025-03-13T14:30:00.000Z
+}
 
 async function openAIService(prompt) {
   try {
     console.log("🔹 Sending prompt to OpenAI:", prompt);
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content:
-            "Extract leave request details from the user's message and return a structured JSON object.",
-        },
-        {
-          role: "user",
-          content: `User Message: "${prompt}"\n\nFormat the response as JSON with keys: start_time, end_time, duration, category.`,
-        },
-      ],
-      temperature: 0.5,
-      max_tokens: 150,
-    });
+    const currentDateTime = getCurrentDateTime();
 
-    // console.log("🔹 OpenAI Raw Response:", JSON.stringify(response, null, 2));
+    const messages = [
+      new SystemMessage(
+        `Extract leave request details from the user's message and return a structured JSON object.
+        Consider today's date and time as: ${currentDateTime}. If the message refers to 'today' or 'tomorrow', resolve it accordingly. and my job time is 9am to 6 pm so consider this and acc to that make response and also under stand work like ooo as out of office means resolve short term word also and OOO	Out of Office
+        AFK	Away from Keyboard
+        EL	Early Leave
+        SL	Sick Leave
+        PL	Personal Leave
+        AL	Annual Leave
+        CL	Casual Leave
+        BL	Bereavement Leave
+        ML	Maternity Leave
+        PTO	Paid Time Off
+        UL	Unpaid Leave
+        WFH	Work From Home
+        OOO	Out of Office
+        BRB	Be Right Back (Short Break)
+        like this word also understand them if there is any short form then understand word also
+        there are many short forms like this word also understand them and find it if it is not here and then do parsing of it
 
-    const reply = response.choices[0]?.message?.content.trim();
-    console.log("✅ Parsed reply Details:", reply);
+        `,
+      ),
+      new HumanMessage(
+        `User Message: "${prompt}"\n\nFormat the response as JSON with keys: start_time, end_time, duration, category.`,
+      ),
+    ];
+
+    const response = await openai.call(messages);
+    const reply = response.content?.trim();
 
     if (!reply) {
       console.log("⚠️ No valid response from OpenAI");
       return [];
     }
 
-    let cleanedReply = reply.replace(/^```json\n?/, "").replace(/\n?```$/, ""); // Remove backticks if present
-
-    console.log("✅ Parsed Leave Details:", cleanedReply);
+    let cleanedReply = reply.replace(/^```json\n?/, "").replace(/\n?```$/, "");
 
     try {
       const parsedData = JSON.parse(cleanedReply);
-      console.log("✅ Parsed Leave Details:", parsedData);
-
-      return [
-        {
-          ...parsedData,
-          is_valid: true,
-          original: prompt,
-        },
-      ];
+      return [{ ...parsedData, is_valid: true, original: prompt }];
     } catch (error) {
       console.error("❌ JSON Parsing Error:", error);
       return [];
